@@ -326,35 +326,35 @@ with tab4:
         30.0,
         5.0,
        0.5
-)
+    )
      
     forecast = []
     for n in range(1, 6):
-            sales = latest["revenue"] * (1 + growth / 100) ** n
-            profit = sales * margin / 100
-            net_profit = sales * net_margin / 100
-            future_equity = latest["equity"] * (1 + equity_growth / 100) ** n
-            forecast_roe = net_profit / future_equity * 100 if future_equity > 0 else 0
-            forecast.append({
-                "年度": int(latest["year"]) + n,
-                "予測売上高": sales,
-                "予測営業利益": profit,
-                "予測当期純利益": net_profit,
-                "予測営業利益率 (%)": margin,
-                "予測営業利益率 (%)": margin,
-"予測ROE (%)": round(forecast_roe, 2)
-            })
+                sales = latest["revenue"] * (1 + growth / 100) ** n
+                profit = sales * margin / 100
+                net_profit = sales * net_margin / 100
+                future_equity = latest["equity"] * (1 + equity_growth / 100) ** n
+                forecast_roe = net_profit / future_equity * 100 if future_equity > 0 else 0
+                forecast.append({
+                    "年度": int(latest["year"]) + n,
+                    "予測売上高": sales,
+                    "予測営業利益": profit,
+                    "予測当期純利益": net_profit,
+                    "予測営業利益率 (%)": margin,
+                    
+                    "予測ROE (%)": round(forecast_roe, 2)
+                })
 
     forecast_df = pd.DataFrame(forecast)
     st.dataframe(forecast_df, use_container_width=True, hide_index=True)
     st.line_chart(forecast_df.set_index("年度")[[
-            "予測売上高", "予測営業利益"
-        ]])
+                "予測売上高", "予測営業利益"
+            ]])
     st.warning(
-            "これは仮定に基づく試算です。将来のROE・ROA・ROICや"
-            "資金繰りを予測するには、将来の資産・負債・利益などの"
-            "前提も追加する必要があります。"
-        )
+                "これは仮定に基づく試算です。将来のROE・ROA・ROICや"
+                "資金繰りを予測するには、将来の資産・負債・利益などの"
+                "前提も追加する必要があります。"
+            )
    
 
 st.divider()
