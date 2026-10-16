@@ -129,11 +129,33 @@ def calculate(df):
 
 init_db()
 
-st.title("📊 企業分析アプリ")
-st.caption("財務データの保存・指標計算・年度比較・将来予測")
+st.title("企業IR")
+st.info("🎓 IR分析は就活の企業研究に役立ちます。企業の業績や成長戦略を数字で把握することで、企業比較・志望動機の作成・面接での質問準備に活用できます。")
+with st.expander("🎓 IR情報を就活に活かす4つの方法"):
+    st.markdown("""
+    **① 企業研究**
+    - 売上高や利益から企業の収益力を理解する
+    - 中期経営計画から今後の成長戦略を把握する
 
-tab1, tab2, tab3, tab4 = st.tabs([
-    "データ入力", "企業分析", "年度比較", "将来予測"
+    **② 企業比較**
+    - ROE・ROA・営業利益率などを同業他社と比較する
+    - 各企業の強みや特徴を発見する
+
+    **③ 志望動機の作成**
+    - 企業の成長戦略と自分の経験を結びつける
+    - 数字を根拠に企業への理解を伝える
+
+    **④ 面接対策**
+    - 決算説明資料から企業の課題を調べる
+    - 事業戦略に関する具体的な逆質問を考える
+    """)
+
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "📝 データ入力",
+    "📊 企業分析",
+    "📈 年度比較",
+    "🔮 将来予測",
+    "🦍 ゴリラ相談室"
 ])
 
 with tab1:
@@ -146,16 +168,21 @@ with tab1:
         )
 
         st.caption("金額の単位を統一してください（例：百万円）")
-        c1, c2 = st.columns(2)
+        c1, c2 = st.columns(2, border=True)
 
         with c1:
+            st.markdown("#### 📊 財務データ①")
             revenue = st.number_input("売上高", min_value=0.0)
-            op = st.number_input("営業利益", value=0.0)
-            net = st.number_input("純利益", value=0.0)
-            assets = st.number_input("総資産", min_value=0.0)
-            equity = st.number_input("自己資本", min_value=0.0)
+            op = st.number_input(
+                "営業利益",
+                value=0.0,
+                help="企業が本業の事業活動によって稼いだ利益です。")
+            net = st.number_input("純利益", value=0.0, help="企業が税金などを差し引いた後に残る最終的な利益です。ROEやROAの計算に使用します。")
+            assets = st.number_input("総資産", min_value=0.0, help="企業が保有する現金・売掛金・建物・設備など、すべての資産の合計です。ROAや自己資本比率の計算に使用します。")
+            equity = st.number_input("自己資本", min_value=0.0, help="企業の総資産から負債などを差し引いた、株主に帰属する資本です。ROEや自己資本比率の計算に使用します。純資産とは必ずしも一致しません。")
 
         with c2:
+            st.markdown("#### 💰 財務データ②")
             debt = st.number_input("有利子負債", min_value=0.0)
             cash = st.number_input("現金・現金同等物", min_value=0.0)
             interest = st.number_input("支払利息", min_value=0.0)
@@ -206,6 +233,62 @@ with tab1:
 
 with tab2:
     st.subheader("企業分析")
+    with st.expander("📘 財務指標の読み方ガイド"):
+
+        st.markdown("""
+    ### 📈 ROE（自己資本利益率）
+    **株主のお金を使って、どれだけ効率よく利益を出しているかを示す指標。**
+
+    例えば、自己資本100億円で純利益20億円ならROEは20％です。
+
+    - 高い場合：少ない自己資本で効率よく利益を生み出している
+    - 注意点：借入金が多いことでROEが高くなる場合もある
+    - 就活での活用：企業の収益力を確認し、同業他社と比較する
+
+    ---
+
+    ### 🏢 ROA（総資産利益率）
+    **会社が持っている資産全体を使って、どれだけ利益を出しているかを示す指標。**
+
+    例えば、総資産200億円で純利益10億円ならROAは5％です。
+
+    - 高い場合：資産を効率よく活用して利益を生み出している
+    - 注意点：設備投資が多い業種では低くなりやすい
+    - 就活での活用：企業が資産を有効活用できているか確認する
+
+    ---
+
+    ### 💰 ROIC（投下資本利益率）
+    **事業に投じた資本から、どれだけ効率よく利益を生み出しているかを示す指標。**
+
+    例えば、投下資本100億円に対して税引後営業利益が15億円ならROICは15％です。
+
+    - 高い場合：事業への投資が効率よく利益につながっている
+    - 注意点：投下資本の計算方法は企業によって異なる場合がある
+    - 就活での活用：企業の事業運営や投資効率を比較する
+
+    ---
+
+    ### 📊 営業利益率
+    **売上高のうち、本業の利益としてどれだけ残ったかを示す指標。**
+
+    例えば、売上高100億円で営業利益20億円なら営業利益率は20％です。
+
+    - 高い場合：本業で利益を生み出す力が強い
+    - 注意点：IT業界でもSaaSやSIerなど、事業形態によって水準が異なる
+    - 就活での活用：企業の競争力やビジネスモデルの違いを考える
+
+    ---
+
+    ### 🛡️ ICR（インタレスト・カバレッジ・レシオ）
+    **会社が借入金の利息を支払う余裕を示す指標。**
+
+    例えば、営業利益10億円で支払利息1億円なら、簡易計算のICRは10倍です。
+
+    - 高い場合：利益に対して利息の負担が小さい
+    - 低い場合：借入金の利息が経営の負担になっている可能性がある
+    - 就活での活用：企業の財務面の安定性を確認する
+    """)
     all_data = load_data()
     companies = sorted(all_data["company"].unique()) if not all_data.empty else []
 
@@ -215,7 +298,7 @@ with tab2:
         result = calculate(raw)
         latest = result.iloc[-1]
 
-        cols = st.columns(4)
+        cols = st.columns(4, border=True)
         for col, label in zip(
             cols,
             ["ROE (%)", "ROA (%)", "ROIC (%)", "営業利益率 (%)"]
@@ -223,7 +306,7 @@ with tab2:
             value = latest[label]
             col.metric(label, "—" if pd.isna(value) else f"{value:.2f}%")
 
-        cols = st.columns(3)
+        cols = st.columns(3, border=True)
         for col, label in zip(
             cols,
             ["ICR (倍)", "自己資本比率 (%)", "財務レバレッジ (倍)"]
@@ -362,3 +445,169 @@ st.caption(
     "注意：入力データの正確性、会計基準、各指標の定義を確認してください。"
     "本アプリの数値は投資判断や業績予想を保証するものではありません。"
 )
+
+st.subheader("📊 企業比較")
+df_compare = load_data()
+companies = sorted(df_compare["company"].dropna().unique().tolist())
+selected_companies = st.multiselect(
+    "比較したい企業を選択してください",
+    companies
+)
+if selected_companies:
+    compare_data = df_compare[
+        df_compare["company"].isin(selected_companies)
+    ].copy()
+    st.dataframe(compare_data, use_container_width=True)
+    
+    latest_data = (
+        compare_data.groupby("company", group_keys=False)
+        .apply(lambda df: calculate(df.assign(company=df.name)).tail(1), include_groups=False)
+        .reset_index(drop=True)
+    )
+    columns = [
+       "company",
+       "year",
+       "ROE (%)",
+       "ROA (%)",
+       "ROIC (%)",
+       "営業利益率 (%)",
+       "ICR (倍)"
+    ]
+    comparison_table = latest_data[columns].copy()
+    comparison_table = comparison_table.set_index("company").T
+    st.dataframe(comparison_table, use_container_width=True)
+    st.subheader("📊 最新年度の財務指標比較")
+    st.dataframe(latest_data, use_container_width=True)
+    st.subheader("📊 企業別ROE比較")
+    indicator = st.selectbox(
+            "比較する財務指標を選択",
+            [
+                "ROE (%)",
+                "ROA (%)",
+                "ROIC (%)",
+                "営業利益率 (%)",
+                "ICR (倍)"
+            ]
+        )
+    st.bar_chart(
+            latest_data.set_index("company")[indicator]
+        )
+    st.subheader("📊 財務指標比較ダッシュボード")
+
+    metrics = [
+            "ROE (%)",
+            "ROA (%)",
+            "ROIC (%)",
+            "営業利益率 (%)",
+            "ICR (倍)"
+        ]
+
+    st.dataframe(
+            latest_data.set_index("company")[metrics].T,
+            use_container_width=True
+        )
+    st.subheader("📊 5つの財務指標をグラフで比較")
+
+    col1, col2 = st.columns(2)
+
+    for i, metric in enumerate(metrics):
+            with [col1, col2][i % 2]:
+                st.write(f"### {metric}")
+                st.bar_chart(
+                    latest_data.set_index("company")[[metric]],
+                    color="#2563EB"
+                )
+                st.subheader("🏆 財務指標別ランキング")
+    sort_order = st.radio(
+    "ランキングの並び順",
+    ["高い順", "低い順"],
+    horizontal=True
+)
+    for metric in metrics:
+            ranking = latest_data[
+                ["company", metric]
+            ].dropna().sort_values(
+               by=metric, ascending=(sort_order == "低い順")
+            )
+
+            if not ranking.empty:
+                st.write(f"### {metric}")
+
+            ranking_table = ranking.copy()
+                
+               # IT企業向けの参考評価基準
+            if metric.startswith("ROE"):
+                a, b, c = 15, 10, 5
+            elif metric.startswith("ROA"):
+                a, b, c = 15, 10, 5
+            elif metric.startswith("ROIC"):
+                a, b, c = 15, 10, 5
+            elif metric.startswith("営業利益率"):
+                a, b, c = 20, 10, 5
+            elif metric.startswith("ICR"):
+                a, b, c = 10, 5, 2
+            else:
+                a, b, c = None, None, None
+
+            if a is not None:
+                ranking_table["評価"] = ranking_table[metric].apply(
+                    lambda x: "優秀" if x >= a else "良好" if x >= b else "標準" if x >= c else "改善余地あり"
+                )
+                
+            ranking_table.insert(
+                    0, "順位", range(1, len(ranking_table) + 1)
+                )
+
+            ranking_table = ranking_table.rename(
+                    columns={
+                        "company": "企業名",
+                        metric: "数値"
+                    }
+                )
+            ranking_table = ranking_table.rename(
+                    columns={
+                        "company": "企業名",
+                        metric: "数値"
+                    }
+                )    
+
+            st.dataframe(
+                ranking_table.style.format({"数値": "{:.2f}"}),
+                hide_index=True,
+                use_container_width=True
+            )
+with tab5:
+    st.header("🦍 ゴリラ相談室 🍌")
+    st.markdown(
+        "<div style='text-align:center; font-size:120px;'>🦍</div>",
+        unsafe_allow_html=True
+    )
+
+    st.info("🍌 何でも聞いてくれウホ！")
+
+    question = st.text_area(
+        "ゴリラへの質問",
+        placeholder="ここに質問を入力してね！",
+        height=120
+    )
+
+    if st.button("🦍 質問する"):
+        st.markdown(
+        """
+        <div style="
+            background-color: #FFF3C4;
+            border: 3px solid #E9B949;
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+        ">
+            <div style="font-size: 22px; color: #795600;">
+                🦍 ゴリラからの回答
+            </div>
+            <div style="font-size: 36px; font-weight: bold; color: #6B4C00;">
+                🍌 What The Fuck！ 🍌
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
