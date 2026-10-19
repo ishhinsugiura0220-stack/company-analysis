@@ -1,0 +1,13 @@
+companies.db
+*.db
+__pycache__/
+*.pyc
+app - backup.py
+app_backup_compare.py
+app_before_forecast.py
+app_old.py
+streamlit_backup.txt
+.streamlit/secrets.toml
+.env
+.env.*
+company-analysis-backup/
