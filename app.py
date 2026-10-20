@@ -13,7 +13,12 @@ st.set_page_config(
     layout="wide"
 )
 
-
+def format_number(value):
+    try:
+        number = float(str(value).replace(",", ""))
+        return f"{number:,.15g}"
+    except ValueError:
+        return str(value)
 def connect():
     return sqlite3.connect(DB)
 
@@ -160,6 +165,47 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 
 with tab1:
     st.subheader("決算データを登録")
+    if "revenue_input" in st.session_state:
+        st.session_state["revenue_input"] = format_number(
+            st.session_state["revenue_input"]
+        )
+
+    if "op_input" in st.session_state:
+        st.session_state["op_input"] = format_number(
+            st.session_state["op_input"]
+        )
+    if "net_input" in st.session_state:
+        st.session_state["net_input"] = format_number(
+            st.session_state["net_input"]
+        )
+    if "assets_input" in st.session_state:
+        st.session_state["assets_input"] = format_number(
+            st.session_state["assets_input"]
+        )
+    if "equity_input" in st.session_state:
+        st.session_state["equity_input"] = format_number(
+            st.session_state["equity_input"]
+        )
+    if "debt_input" in st.session_state:
+        st.session_state["debt_input"] = format_number(
+            st.session_state["debt_input"]
+        )
+    if "cash_input" in st.session_state:
+        st.session_state["cash_input"] = format_number(
+            st.session_state["cash_input"]
+        )
+    if "interest_input" in st.session_state:
+        st.session_state["interest_input"] = format_number(
+            st.session_state["interest_input"]
+        )    
+    if "interest_income_input" in st.session_state:
+        st.session_state["interest_income_input"] = format_number(
+            st.session_state["interest_income_input"]
+        )
+    if "dividends_input" in st.session_state:
+        st.session_state["dividends_input"] = format_number(
+            st.session_state["dividends_input"]
+        )
     with st.form("financial_form"):
         company = st.text_input("企業名", placeholder="例：株式会社〇〇")
         year = st.number_input(
@@ -172,27 +218,156 @@ with tab1:
 
         with c1:
             st.markdown("#### 📊 財務データ①")
-            revenue = st.number_input("売上高", min_value=0.0)
-            op = st.number_input(
+            revenue_text = st.text_input(
+    "売上高",
+    value="0",
+    placeholder="例：1,000,000",
+    key="revenue_input"
+)
+
+           
+            try:
+                revenue = float(revenue_text.replace(",", ""))
+            except ValueError:
+                st.error("売上高には数字を入力してください。")
+                st.stop()
+            op_text = st.text_input(
                 "営業利益",
-                value=0.0,
-                help="企業が本業の事業活動によって稼いだ利益です。")
-            net = st.number_input("純利益", value=0.0, help="企業が税金などを差し引いた後に残る最終的な利益です。ROEやROAの計算に使用します。")
-            assets = st.number_input("総資産", min_value=0.0, help="企業が保有する現金・売掛金・建物・設備など、すべての資産の合計です。ROAや自己資本比率の計算に使用します。")
-            equity = st.number_input("自己資本", min_value=0.0, help="企業の総資産から負債などを差し引いた、株主に帰属する資本です。ROEや自己資本比率の計算に使用します。純資産とは必ずしも一致しません。")
+                value="0",
+                placeholder="例：1,000,000",
+                help="企業が本業の事業活動によって稼いだ利益です。",
+                key="op_input"
+            )
+
+            try:
+                op = float(op_text.replace(",", ""))
+            except ValueError:
+                st.error("営業利益には数字を入力してください。")
+                st.stop()
+            net_text = st.text_input(
+            "純利益",
+            value="0",
+            placeholder="例：1,000,000",
+            help="企業が税金などを差し引いた後に残る最終的な利益です。ROEやROAの計算に使用します。",
+            key="net_input"
+        )
+
+            try:
+                net = float(net_text.replace(",", ""))
+            except ValueError:
+                st.error("純利益には数字を入力してください。")
+                st.stop()
+            assets_text = st.text_input(
+                "総資産",
+                value="0",
+                placeholder="例：1,000,000",
+                help="企業が保有する現金・売掛金・建物・設備など、すべての資産の合計です。ROAや自己資本比率の計算に使用します。",
+                key="assets_input"
+            )
+
+            try:
+                assets = float(assets_text.replace(",", ""))
+            except ValueError:
+                st.error("総資産には数字を入力してください。")
+                st.stop()
+            equity_text = st.text_input(
+            "自己資本",
+            value="0",
+            placeholder="例：1,000,000",
+            help="企業の総資産から負債などを差し引いた、株主に帰属する資本です。ROEや自己資本比率の計算に使用します。純資産とは必ずしも一致しません。",
+            key="equity_input"
+        )
+
+            try:
+                equity = float(equity_text.replace(",", ""))
+            except ValueError:
+                st.error("自己資本には数字を入力してください。")
+                st.stop()
 
         with c2:
             st.markdown("#### 💰 財務データ②")
-            debt = st.number_input("有利子負債", min_value=0.0)
-            cash = st.number_input("現金・現金同等物", min_value=0.0)
-            interest = st.number_input("支払利息", min_value=0.0)
-            interest_income = st.number_input("受取利息", min_value=0.0)
-            dividends = st.number_input("受取配当金", min_value=0.0)
-            tax = st.number_input(
-                "実効税率（%）", min_value=0.0,
-                max_value=100.0, value=30.0
+            debt_text = st.text_input(
+                "有利子負債",
+                value="0",
+                placeholder="例：1,000,000",
+                key="debt_input"
             )
 
+            try:
+                debt = float(debt_text.replace(",", ""))
+                if debt < 0:
+                    st.error("有利子負債には0以上の数字を入力してください。")
+                    st.stop()
+            except ValueError:
+                st.error("有利子負債には数字を入力してください。")
+                st.stop()          
+            cash_text = st.text_input(
+                "現金・現金同等物",
+                value="0",
+                placeholder="例：1,000,000",
+                key="cash_input"
+            )
+
+            try:
+                cash = float(cash_text.replace(",", ""))
+                if cash < 0:
+                    st.error("現金・現金同等物には0以上の数字を入力してください。")
+                    st.stop()
+            except ValueError:
+                st.error("現金・現金同等物には数字を入力してください。")
+                st.stop()
+            interest_text = st.text_input(
+                "支払利息",
+                value="0",
+                placeholder="例：1,000,000",
+                key="interest_input"
+            )
+
+            try:
+                interest = float(interest_text.replace(",", ""))
+                if interest < 0:
+                    st.error("支払利息には0以上の数字を入力してください。")
+                    st.stop()
+            except ValueError:
+                st.error("支払利息には数字を入力してください。")
+                st.stop()
+            
+            interest_income_text = st.text_input(
+                "受取利息",
+                value="0",
+                placeholder="例：1,000,000",
+                key="interest_income_input"
+            )
+
+            try:
+                interest_income = float(interest_income_text.replace(",", ""))
+                if interest_income < 0:
+                    st.error("受取利息には0以上の数字を入力してください。")
+                    st.stop()
+            except ValueError:
+                st.error("受取利息には数字を入力してください。")
+                st.stop()
+            dividends_text = st.text_input(
+                "受取配当金",
+                value="0",
+                placeholder="例：1,000,000",
+                key="dividends_input"
+            )
+
+            try:
+                dividends = float(dividends_text.replace(",", ""))
+                if dividends < 0:
+                    st.error("受取配当金には0以上の数字を入力してください。")
+                    st.stop()
+            except ValueError:
+                st.error("受取配当金には数字を入力してください。")
+                st.stop()
+            tax = st.number_input(
+                "実効税率（%）",
+                min_value=0.0,
+                max_value=100.0,
+                value=30.0
+            )
         submitted = st.form_submit_button("データを保存")
 
         if submitted:
@@ -298,33 +473,51 @@ with tab2:
         result = calculate(raw)
         latest = result.iloc[-1]
 
+        metric_help = {
+    "ROE (%)": "自己資本利益率。株主のお金（自己資本）を使って、どれだけ効率よく利益を出したかを示す指標です。",
+    "ROA (%)": "総資産利益率。会社が持つ資産全体を使って、どれだけ利益を生み出したかを示す指標です。",
+    "ROIC (%)": "投下資本利益率。事業に投じた資本から、どれだけ効率よく利益を生み出したかを示す指標です。",
+    "営業利益率 (%)": "売上高に対して営業利益がどれくらいあるかを示す指標です。本業の収益力を見るのに使います。",
+    "ICR (倍)": "インタレスト・カバレッジ・レシオ。営業利益が支払利息の何倍あるかを示し、利息の支払い余力を見る指標です。",
+    "自己資本比率 (%)": "総資産に対して自己資本がどれくらいあるかを示す指標です。財務の安定性を見るのに使います。",
+    "財務レバレッジ (倍)": "総資産が自己資本の何倍あるかを示す指標です。負債をどの程度活用しているかを見ることができます。"
+        }
         cols = st.columns(4, border=True)
+
         for col, label in zip(
-            cols,
-            ["ROE (%)", "ROA (%)", "ROIC (%)", "営業利益率 (%)"]
-        ):
-            value = latest[label]
-            col.metric(label, "—" if pd.isna(value) else f"{value:.2f}%")
+                cols,
+                ["ROE (%)", "ROA (%)", "ROIC (%)", "営業利益率 (%)"]
+            ):
+                value = latest[label]
+                col.metric(
+                    label,
+                    "--" if pd.isna(value) else f"{value:.2f}%",
+                    help=metric_help.get(label, "")
+                )
 
         cols = st.columns(3, border=True)
-        for col, label in zip(
-            cols,
-            ["ICR (倍)", "自己資本比率 (%)", "財務レバレッジ (倍)"]
-        ):
-            value = latest[label]
-            suffix = "倍" if "倍" in label else "%"
-            col.metric(label, "—" if pd.isna(value) else f"{value:.2f}{suffix}")
 
+        for col, label in zip(
+                cols,
+                ["ICR (倍)", "自己資本比率 (%)", "財務レバレッジ (倍)"]
+            ):
+                value = latest[label]
+                suffix = "倍" if "倍" in label else "%"
+                col.metric(
+                    label,
+                    "--" if pd.isna(value) else f"{value:.2f}{suffix}",
+                    help=metric_help.get(label, "")
+                )
         st.caption(f"最新年度：{int(latest['year'])}年度")
         st.dataframe(
-            result[[
-                "year", "revenue", "operating_profit", "net_profit",
-                "ROE (%)", "ROA (%)", "ROIC (%)", "ICR (倍)",
-                "営業利益率 (%)", "自己資本比率 (%)"
-            ]],
-            use_container_width=True,
-            hide_index=True
-        )
+                result[[
+                    "year", "revenue", "operating_profit", "net_profit",
+                    "ROE (%)", "ROA (%)", "ROIC (%)", "ICR (倍)",
+                    "営業利益率 (%)", "自己資本比率 (%)"
+                ]],
+                use_container_width=True,
+                hide_index=True
+            )
     else:
         st.info("「データ入力」タブから企業の決算数値を登録してください。")
 
