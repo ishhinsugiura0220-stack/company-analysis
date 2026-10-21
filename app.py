@@ -1,4 +1,4 @@
-
+import plotly.graph_objects as go
 import sqlite3
 from pathlib import Path
 
@@ -45,7 +45,21 @@ def init_db():
             )
         """)
 
+        existing_columns = {
+            row[1] for row in con.execute("PRAGMA table_info(financials)")
+        }
 
+        cf_columns = [
+            "operating_cf",
+            "investing_cf",
+            "financing_cf"
+        ]
+
+        for column in cf_columns:
+            if column not in existing_columns:
+                con.execute(
+                    f"ALTER TABLE financials ADD COLUMN {column} REAL"
+                )
 def load_data(company=None):
     with connect() as con:
         if company:
@@ -123,12 +137,13 @@ def calculate(df):
         )
     )
 
-    # 前年度比
+    # 前年度比st.metric(
     for col in ["revenue", "operating_profit", "net_profit"]:
         df[f"{col}_前年比 (%)"] = (
             df[col].pct_change() * 100
         )
-
+    # フリーキャッシュフロー（営業CF ＋ 投資CF）
+    df["フリーCF"] = df["operating_cf"] + df["investing_cf"]
     return df
 
 
@@ -368,6 +383,48 @@ with tab1:
                 max_value=100.0,
                 value=30.0
             )
+        st.markdown("#### 💰 キャッシュフロー")
+
+        operating_cf_text = st.text_input(
+            "営業キャッシュフロー",
+            value="",
+            placeholder="例：1,000,000 または -500,000",
+            help="本業の営業活動による現金の増減です。マイナスの場合もあります。",
+            key="operating_cf_input"
+        )
+        investing_cf_text = st.text_input(
+            "投資キャッシュフロー",
+            value="",
+            placeholder="例：-1,000,000",
+            help="設備投資や有価証券の売買など、投資活動による現金の増減です。",
+            key="investing_cf_input"
+        )
+        financing_cf_text = st.text_input(
+            "財務キャッシュフロー",
+            value="",
+            placeholder="例：-500,000",
+            help="借入金の調達・返済や配当金の支払いなど、財務活動による現金の増減です。",
+            key="financing_cf_input"
+        )
+        try:
+            operating_cf = (
+                float(operating_cf_text.replace(",", ""))
+                if operating_cf_text.strip() else None
+            )
+            investing_cf = (
+                float(investing_cf_text.replace(",", ""))
+                if investing_cf_text.strip() else None
+            )
+            financing_cf = (
+                float(financing_cf_text.replace(",", ""))
+                if financing_cf_text.strip() else None
+            )
+        except ValueError:
+            st.error(
+                "キャッシュフローには数字を入力してください。"
+                "例：1,000,000 または -500,000"
+            )
+            st.stop()
         submitted = st.form_submit_button("データを保存")
 
         if submitted:
@@ -383,8 +440,9 @@ with tab1:
                                 company, year, revenue, operating_profit,
                                 net_profit, total_assets, equity, debt,
                                 cash, interest_expense, interest_income,
-                                dividend_income, tax_rate
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                dividend_income, tax_rate,
+                                operating_cf, investing_cf, financing_cf
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                             ON CONFLICT(company, year) DO UPDATE SET
                                 revenue=excluded.revenue,
                                 operating_profit=excluded.operating_profit,
@@ -396,11 +454,15 @@ with tab1:
                                 interest_expense=excluded.interest_expense,
                                 interest_income=excluded.interest_income,
                                 dividend_income=excluded.dividend_income,
-                                tax_rate=excluded.tax_rate
+                                tax_rate=excluded.tax_rate,
+                                operating_cf=excluded.operating_cf,
+                                investing_cf=excluded.investing_cf,
+                                financing_cf=excluded.financing_cf
                         """, (
                             company.strip(), int(year), revenue, op,
                             net, assets, equity, debt, cash, interest,
-                            interest_income, dividends, tax / 100
+                            interest_income, dividends, tax / 100,
+                            operating_cf, investing_cf, financing_cf
                         ))
                     st.success("データを保存しました。")
                 except sqlite3.Error as e:
@@ -473,54 +535,444 @@ with tab2:
         result = calculate(raw)
         latest = result.iloc[-1]
 
-        metric_help = {
-    "ROE (%)": "自己資本利益率。株主のお金（自己資本）を使って、どれだけ効率よく利益を出したかを示す指標です。",
-    "ROA (%)": "総資産利益率。会社が持つ資産全体を使って、どれだけ利益を生み出したかを示す指標です。",
-    "ROIC (%)": "投下資本利益率。事業に投じた資本から、どれだけ効率よく利益を生み出したかを示す指標です。",
-    "営業利益率 (%)": "売上高に対して営業利益がどれくらいあるかを示す指標です。本業の収益力を見るのに使います。",
-    "ICR (倍)": "インタレスト・カバレッジ・レシオ。営業利益が支払利息の何倍あるかを示し、利息の支払い余力を見る指標です。",
-    "自己資本比率 (%)": "総資産に対して自己資本がどれくらいあるかを示す指標です。財務の安定性を見るのに使います。",
-    "財務レバレッジ (倍)": "総資産が自己資本の何倍あるかを示す指標です。負債をどの程度活用しているかを見ることができます。"
-        }
-        cols = st.columns(4, border=True)
+    metric_help = {
+        "ROE (%)": "自己資本利益率。株主のお金（自己資本）を使って、どれだけ効率よく利益を出したかを示す指標です。",
+        "ROA (%)": "総資産利益率。会社が持つ資産全体を使って、どれだけ利益を生み出したかを示す指標です。",
+        "ROIC (%)": "投下資本利益率。事業に投じた資本から、どれだけ効率よく利益を生み出したかを示す指標です。",
+        "営業利益率 (%)": "売上高に対して営業利益がどれくらいあるかを示す指標です。本業の収益力を見るのに使います。",
+        "ICR (倍)": "インタレスト・カバレッジ・レシオ。営業利益が支払利息の何倍あるかを示し、利息の支払い余力を見る指標です。",
+        "自己資本比率 (%)": "総資産に対して自己資本がどれくらいあるかを示す指標です。財務の安定性を見るのに使います。",
+        "財務レバレッジ (倍)": "総資産が自己資本の何倍あるかを示す指標です。負債をどの程度活用しているかを見ることができます。"
+    }
 
-        for col, label in zip(
-                cols,
-                ["ROE (%)", "ROA (%)", "ROIC (%)", "営業利益率 (%)"]
-            ):
-                value = latest[label]
-                col.metric(
-                    label,
-                    "--" if pd.isna(value) else f"{value:.2f}%",
-                    help=metric_help.get(label, "")
-                )
+    cols = st.columns(4, border=True)
+    for col, label in zip(
+        cols,
+        ["ROE (%)", "ROA (%)", "ROIC (%)", "営業利益率 (%)"]
+    ):
+        value = latest[label]
+        col.metric(
+            label,
+            "--" if pd.isna(value) else f"{value:.2f}%",
+            help=metric_help.get(label, "")
+        )
 
-        cols = st.columns(3, border=True)
+    cols = st.columns(3, border=True)
+    for col, label in zip(
+        cols,
+        ["ICR (倍)", "自己資本比率 (%)", "財務レバレッジ (倍)"]
+    ):
+        value = latest[label]
+        suffix = "倍" if "倍" in label else "%"
+        col.metric(
+            label,
+            "--" if pd.isna(value) else f"{value:.2f}{suffix}",
+            help=metric_help.get(label, "")
+        )
+    st.subheader("💰 キャッシュフロー分析")
+    cf_cols = st.columns(4, border=True)
 
-        for col, label in zip(
-                cols,
-                ["ICR (倍)", "自己資本比率 (%)", "財務レバレッジ (倍)"]
-            ):
-                value = latest[label]
-                suffix = "倍" if "倍" in label else "%"
-                col.metric(
-                    label,
-                    "--" if pd.isna(value) else f"{value:.2f}{suffix}",
-                    help=metric_help.get(label, "")
-                )
-        st.caption(f"最新年度：{int(latest['year'])}年度")
-        st.dataframe(
-                result[[
-                    "year", "revenue", "operating_profit", "net_profit",
-                    "ROE (%)", "ROA (%)", "ROIC (%)", "ICR (倍)",
-                    "営業利益率 (%)", "自己資本比率 (%)"
-                ]],
-                use_container_width=True,
-                hide_index=True
-            )
+    cf_items = [
+        ("営業CF", "operating_cf"),
+        ("投資CF", "investing_cf"),
+        ("財務CF", "financing_cf"),
+        ("フリーCF", "フリーCF"),
+    ]
+
+    for col, (label, key) in zip(cf_cols, cf_items):
+        value = latest[key]
+        col.metric(
+            label,
+            "未入力" if pd.isna(value) else f"{value:,.0f} 円"
+        )
+    st.markdown("#### 📈 キャッシュフローの推移")
+
+    cf_chart_data = result[
+        ["year", "operating_cf", "investing_cf", "financing_cf", "フリーCF"]
+    ].copy()
+
+    cf_chart_data = cf_chart_data.rename(columns={
+        "operating_cf": "営業CF",
+        "investing_cf": "投資CF",
+        "financing_cf": "財務CF",
+        "フリーCF": "フリーCF",
+    })
+
+    if cf_chart_data[["営業CF", "投資CF", "財務CF", "フリーCF"]].notna().any().any():
+        st.line_chart(
+            cf_chart_data.set_index("year"),
+            y=["営業CF", "投資CF", "財務CF", "フリーCF"]
+        )
     else:
-        st.info("「データ入力」タブから企業の決算数値を登録してください。")
+        st.info("キャッシュフローのデータがまだ登録されていません。")
+        st.markdown("#### 📝 キャッシュフローの自動分析")
 
+    operating_cf_value = latest["operating_cf"]
+
+if pd.isna(operating_cf_value):
+    st.info("営業CFのデータが未入力です。")
+elif operating_cf_value > 0:
+    st.success(
+        "営業CFがプラスです。本業の活動によって現金を生み出しています。"
+    )
+elif operating_cf_value < 0:
+    st.warning(
+        "営業CFがマイナスです。本業の活動による現金の支出が収入を上回っています。"
+    )
+else:
+    st.info("営業CFは0円です。")
+free_cf_value = latest["フリーCF"]
+
+if pd.isna(free_cf_value):
+    st.info("フリーCFは未計算です。営業CFと投資CFを入力してください。")
+elif free_cf_value > 0:
+    st.success(
+        "フリーCFはプラスです。営業CFから投資CFを反映した後も、現金が残っています。"
+    )
+elif free_cf_value < 0:
+    st.warning(
+        "フリーCFはマイナスです。投資活動を含めると現金の支出が収入を上回っています。投資の内容や複数年度の推移を確認しましょう。"
+    )
+else:
+    st.info("フリーCFは0円です。")
+        # 投資キャッシュフローの分析
+investing_cf_value = latest["investing_cf"]
+
+if pd.isna(investing_cf_value):
+    st.info("投資CFのデータが未入力です。")
+elif investing_cf_value < 0:
+    st.info(
+        "投資CFはマイナスです。設備投資や資産の購入などによる支出が考えられます。投資内容を確認しましょう。"
+    )
+elif investing_cf_value > 0:
+    st.info(
+        "投資CFはプラスです。資産の売却や投資の回収などによる収入が考えられます。内訳を確認しましょう。"
+    )
+else:
+    st.info("投資CFは0円です。")
+        # 財務キャッシュフローの分析
+financing_cf_value = latest["financing_cf"]
+
+if pd.isna(financing_cf_value):
+    st.info("財務CFのデータが未入力です。")
+elif financing_cf_value < 0:
+    st.info(
+        "財務CFはマイナスです。借入金の返済や配当金の支払いなどが考えられます。内訳を確認しましょう。"
+    )
+elif financing_cf_value > 0:
+    st.info(
+        "財務CFはプラスです。借入金の調達や増資などによる資金流入が考えられます。内訳を確認しましょう。"
+    )
+else:
+    st.info("財務CFは0円です。")
+    st.subheader("📊 企業財務レーダーチャート")
+
+    radar_labels = [
+        "ROE", "ROA", "ROIC",
+        "営業利益率", "自己資本比率"
+    ]
+
+    radar_columns = [
+        "ROE (%)", "ROA (%)", "ROIC (%)",
+        "営業利益率 (%)", "自己資本比率 (%)"
+    ]
+
+    radar_scores = []
+    for column in radar_columns:
+        value = latest[column]
+        score = 0 if pd.isna(value) else max(0, min(float(value), 100))
+        radar_scores.append(score)
+
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatterpolar(
+        r=radar_scores + [radar_scores[0]],
+        theta=radar_labels + [radar_labels[0]],
+        fill="toself",
+        name=selected
+    ))
+
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 100]
+            )
+        ),
+        showlegend=False
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.caption(
+        "※ 仮表示です。各指標を0〜100の範囲に収めたもので、"
+        "企業の優劣を示す評価スコアではありません。"
+    )
+    st.subheader("🧠 企業財務分析レポート")
+    roe = latest["ROE (%)"]
+
+    st.markdown("#### 📈 収益性の分析")
+
+    if pd.isna(roe):
+        st.info("ROEを計算できるデータがありません。")
+    elif roe >= 15:
+        st.success(
+            f"ROEは{roe:.2f}%です。自己資本に対する利益創出力が"
+            "高い水準にあります。ただし、負債の活用によって"
+            "ROEが高くなっている可能性もあるため、"
+            "ROAや財務レバレッジとの比較が重要です。"
+        )
+    elif roe >= 8:
+        st.info(
+            f"ROEは{roe:.2f}%です。一定の利益創出力が認められます。"
+            "同業他社のROEや過去の推移と比較することで、"
+            "収益性をより正確に評価できます。"
+        )
+    else:
+        st.warning(
+            f"ROEは{roe:.2f}%です。自己資本に対する利益創出力を"
+            "確認する必要があります。利益率の低下や"
+            "自己資本の増加など、背景を調べることが重要です。"
+        )
+        st.markdown("#### 🔍 収益性の詳細分析")
+
+        roa = latest["ROA (%)"]
+        roic = latest["ROIC (%)"]
+        margin = latest["営業利益率 (%)"]
+
+        if pd.notna(roa):
+            st.write(
+                f"**ROA：{roa:.2f}%** — "
+                "総資産を使ってどれだけ効率よく利益を生み出しているかを示します。"
+                "過去の推移や同業他社との比較が重要です。"
+            )
+        else:
+            st.info("ROAを計算できません。")
+
+        if pd.notna(roic):
+            st.write(
+                f"**ROIC：{roic:.2f}%** — "
+                "事業に投じた資本から得られる税引後営業利益の割合です。"
+                "資本コストとの比較が重要です。"
+            )
+        else:
+            st.info("ROICを計算できません。")
+
+        if pd.notna(margin):
+            st.write(
+                f"**営業利益率：{margin:.2f}%** — "
+                "売上高に対する本業の利益の割合です。"
+                "利益率の変化から収益構造を分析できます。"
+            )
+        else:
+            st.info("営業利益率を計算できません。")
+    st.markdown("#### 🛡️ 財務安全性の分析")
+
+    equity_ratio = latest["自己資本比率 (%)"]
+    icr = latest["ICR (倍)"]
+    leverage = latest["財務レバレッジ (倍)"]
+
+    if pd.notna(equity_ratio):
+        st.write(
+            f"**自己資本比率：{equity_ratio:.2f}%** — "
+            "総資産のうち自己資本が占める割合です。"
+            "負債への依存度や財務の安定性を確認する指標です。"
+        )
+
+    if pd.notna(icr):
+        st.write(
+            f"**ICR：{icr:.2f}倍** — "
+            "営業利益が支払利息の何倍あるかを示します。"
+            "利息の支払い余力を確認できます。"
+        )
+    else:
+        st.info("ICRを計算できません。支払利息が0の場合などが考えられます。")
+
+    if pd.notna(leverage):
+        st.write(
+            f"**財務レバレッジ：{leverage:.2f}倍** — "
+            "総資産が自己資本の何倍あるかを示します。"
+            "ROEの高さに財務構造が影響していないか確認できます。"
+        )
+
+    if pd.notna(equity_ratio) and pd.notna(icr):
+        if equity_ratio < 30 and icr < 3:
+            st.warning(
+                "【要確認】自己資本比率と利息支払余力の両面で、"
+                "財務安全性に注意が必要な可能性があります。"
+                "同業他社や過去の推移も確認しましょう。"
+            )
+        elif equity_ratio >= 50 and icr >= 5:
+            st.success(
+                "【注目ポイント】自己資本の割合が比較的高く、"
+                "営業利益による利息支払余力も確認できます。"
+                "財務安全性が強みとなる可能性があります。"
+            )
+        else:
+            st.info(
+                "【総合コメント】財務安全性を判断するには、"
+                "自己資本比率・ICRに加えて、"
+                "負債構成やキャッシュフローの確認が重要です。"
+            )
+    st.markdown("#### 📈 成長性の分析")
+
+    growth_items = [
+        ("売上高", "revenue"),
+        ("営業利益", "operating_profit"),
+        ("純利益", "net_profit")
+    ]
+
+    if len(result) < 2:
+        st.info(
+            "成長性を分析するには、異なる年度の"
+            "決算データが2年分以上必要です。"
+        )
+    else:
+        current = result.sort_values("year").iloc[-1]
+        previous = result.sort_values("year").iloc[-2]
+
+        if int(current["year"]) - int(previous["year"]) != 1:
+            st.info(
+                "直前年度のデータがないため、"
+                "前年比の分析はできません。"
+            )
+        else:
+            for name, column in growth_items:
+                current_value = current[column]
+                previous_value = previous[column]
+
+                if (
+                    pd.isna(current_value)
+                    or pd.isna(previous_value)
+                    or previous_value <= 0
+                ):
+                    st.info(
+                        f"{name}の成長率は比較条件を"
+                        "満たさないため算出できません。"
+                    )
+                    continue
+
+                growth = (
+                    (current_value - previous_value)
+                    / previous_value * 100
+                )
+
+                if growth > 0:
+                    st.write(
+                        f"📈 **{name}：前年比 +{growth:.2f}%**"
+                        " — 前年度から増加しています。"
+                    )
+                elif growth < 0:
+                    st.write(
+                        f"📉 **{name}：前年比 {growth:.2f}%**"
+                        " — 前年度から減少しています。"
+                    )
+                else:
+                    st.write(
+                        f"➡️ **{name}：前年比 0.00%**"
+                        " — 前年度と同水準です。"
+                    )
+    st.markdown("#### 🧠 企業の総合財務分析")
+    # IT業界向けの暫定評価基準
+    IT_BENCHMARKS = {
+        "roe": {"strong": 15, "caution": 5},
+        "roa": {"strong": 8, "caution": 3},
+        "roic": {"strong": 10, "caution": 5},
+        "margin": {"strong": 15, "caution": 5},
+        "equity_ratio": {"strong": 50, "caution": 30},
+        "icr": {"strong": 10, "caution": 3},
+    }
+    strengths = []
+    cautions = []
+    margin = latest["営業利益率 (%)"]
+    roa = latest["ROA (%)"]
+    roic = latest["ROIC (%)"]
+    if pd.notna(roe) and pd.notna(margin):
+        if roe >= IT_BENCHMARKS["roe"]["strong"] and margin >= IT_BENCHMARKS["margin"]["strong"]:
+            strengths.append(
+                "ROEと営業利益率がともに高めです。"
+                "本業の収益性が強みとなる可能性があります。"
+            )
+    if pd.notna(margin) and margin >= IT_BENCHMARKS["margin"]["strong"]:
+        strengths.append(
+            f"営業利益率は{margin:.2f}%です。"
+            "売上高に対する本業の利益の割合が比較的高く、"
+            "収益性が強みとなる可能性があります。"
+            "同業他社との比較も重要です。"
+        )
+    if pd.notna(roa) and roa >= IT_BENCHMARKS["roa"]["strong"]:
+        strengths.append(
+            f"ROAは{roa:.2f}%です。"
+            "総資産に対する利益創出力が高い可能性があります。"
+            "資産効率が強みかどうか、同業他社と比較して確認しましょう。"
+        )
+
+    if pd.notna(roic) and roic >= IT_BENCHMARKS["roic"]["strong"]:
+        strengths.append(
+            f"ROICは{roic:.2f}%です。"
+            "投下資本に対して一定の利益を生み出しています。"
+            "資本コストを上回っているか確認することが重要です。"
+        )
+    if pd.notna(equity_ratio) and equity_ratio >= IT_BENCHMARKS["equity_ratio"]["strong"]:
+        strengths.append(
+            f"自己資本比率は{equity_ratio:.2f}%です。"
+            "自己資本による資産の裏付けが比較的大きく、"
+            "財務安全性が強みとなる可能性があります。"
+            "同業他社との比較やキャッシュフローの確認も重要です。"
+        )
+    if pd.notna(equity_ratio):
+        if equity_ratio < IT_BENCHMARKS["equity_ratio"]["caution"]:
+            cautions.append(
+                "自己資本比率が30%未満です。"
+                "負債構成や財務安全性の確認が必要です。"
+            )
+    if pd.notna(icr) and icr >= IT_BENCHMARKS["icr"]["strong"]:
+        strengths.append(
+            f"ICRは{icr:.2f}倍です。"
+            "営業利益に対する支払利息の負担が比較的小さく、"
+            "利息支払余力に注目できます。"
+            "ただし、借入金の残高や返済期限、"
+            "キャッシュフローも確認する必要があります。"
+        )
+    if pd.notna(icr):
+        if icr < IT_BENCHMARKS["icr"]["caution"]:
+            cautions.append(
+                "ICRが3倍未満です。"
+                "利息の支払い余力について確認が必要です。"
+            )
+
+    st.markdown("**✅ 注目できる強み**")
+    if strengths:
+        for comment in strengths:
+            st.write("・" + comment)
+    else:
+        st.write("現在の簡易判定では、明確な強みを特定できません。")
+
+    st.markdown("**🔍 注意・確認すべき点**")
+    if cautions:
+        for comment in cautions:
+            st.write("・" + comment)
+    else:
+        st.write("現在の簡易判定では、特に該当する注意項目はありません。")
+
+    st.caption(
+        "※ この分析は試験的な目安に基づいています。"
+        "実際の企業評価には業界比較や複数年度の分析が必要です。"
+    )
+    st.caption(f"最新年度：{int(latest['year'])}年度")
+
+    st.dataframe(
+        result[[
+            "year", "revenue", "operating_profit", "net_profit",
+            "ROE (%)", "ROA (%)", "ROIC (%)", "ICR (倍)",
+            "営業利益率 (%)", "自己資本比率 (%)"
+        ]],
+        use_container_width=True,
+        hide_index=True
+    )
+
+    if not companies:
+        st.info("「データ入力」タブから企業の決算数値を登録してください。")
 with tab3:
     st.subheader("年度比較")
     all_data = load_data()
